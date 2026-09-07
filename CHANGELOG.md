@@ -1,216 +1,66 @@
-# Changelog — Servicios Unificados API
+# Changelog
 
-Este changelog resume los releases y el historial de desarrollo detallado (sesiones, decisiones técnicas, pruebas y métricas).
-
----
-
-## v2.1.0 — 2026-02-27 (Data fixes + nuevos endpoints + validación ejido)
-
-**Cambios Principales:**
-
-- 🐛 **Fix crítico de datos — CS011 coordenadas invertidas**
-  - `latitud` y `longitud` estaban transpuestas en el registro "Centro de Salud Colón"
-  - Corregido: `latitud: -31.43975`, `longitud: -64.164217`
-  - Impacto: el centro ahora es seleccionable correctamente por `seleccionarCentroPorArea()`
-
-- 📞 **Datos — Campo `telefono` en los 4 HPA**
-  - HPACB (Cura Brochero): `03543 40-7299`
-  - HPAMC (Maria Teresa De Calcuta): `0351 483-1676`
-  - HPASJ (San Jorge): `0351 327-9181`
-  - HPACP (Comipaz): `0351 445-6667`
-
-- 🗺️ **Validación de ejido municipal — HTTP 422**
-  - Endpoints `GET /centro_correspondiente` y `GET /area_programatica`
-  - Bbox implementado: lat (-31.1 a -31.7), lon (-63.8 a -64.6)
-  - Coordenadas fuera del ejido retornan HTTP 422 con mensaje diferenciado, en lugar de 404 genérico
-  - Permite que el chatbot (Wise) muestre mensajes apropiados al ciudadano
-
-- ✨ **Nuevo endpoint — Zonas Programáticas**
-  - `GET /api/zonas_programaticas` — lista las 6 zonas con conteo de centros
-  - `GET /api/zonas_programaticas/:zona` — centros de una zona ("01"–"06"), con paginación opcional
-  - Acepta "1"–"6" y normaliza a formato "01"–"06"
-  - Servicio: `src/services/zonaProgramatica.service.js`
-  - Rutas: `src/routes/zonaProgramatica.routes.js`
-
-- 📄 **Documentación actualizada**
-  - `DOCUMENTACION_ENDPOINTS.md`: secciones 3.4, 3.5, 5.5 (HPA), 5.6 (Zonas Programáticas)
-  - Todos los cambios marcados con `*[2026-02-27]*`
+All notable changes to this project are documented here. Dates use the project's internal release calendar.
 
 ---
 
-## v2.0.0 — 2026-01-06 (Refactorización Modular)
+## v2.1.0 — Data integrity fixes, new endpoints, boundary validation
 
-**Cambios Principales:**
-- 🏗️ **Arquitectura Modular MVC + Services**: Refactorización completa de server.js (1295 líneas) en estructura modularizada
-  - `config/` - Configuración centralizada (constants, security, rateLimits)
-  - `middlewares/` - Middlewares reutilizables (auth, logging, validation, timeout, errorHandlers)
-  - `services/` - Lógica de negocio (auth, area, centroSelection)
-  - `routes/` - Endpoints organizados por dominio (health, auth, centros, area, odontologia, som, admin)
-  - `utils/` - Utilidades compartidas (formatters.js)
-  
-- 📉 **Reducción de Complejidad**:
-  - `server.js`: 1295 líneas → 72 líneas (94% reducción)
-  - Eliminada duplicación de código (formatoCentroLite, formatoCentroCompleto)
-  - Imports optimizados, comentarios duplicados eliminados
-  
-- 🔧 **Mejoras de Código**:
-  - Logging estructurado consistente (reemplazados console.log por logger/auditLogger)
-  - Comentarios traducidos a español
-  - Eliminado require('dotenv') duplicado
-  - Exports consistentes y retrocompatibles
-  
-- ✨ **Nuevas Funcionalidades**:
-  - `/centros_salud_mapa`: Ahora soporta filtro `?centro=CS024` y retorna campo `horarios`
-  - `/api/odontologia/lejanos`: Reescrito para siempre retornar sugerencias fuera del área del usuario
-  - Endpoints públicos corregidos: `/`, `/health`, `/debug` (sin JWT)
-  
-- 🐛 **Bugfixes**:
-  - Corregido orden de ejecución de dotenv (causaba fallo en validaciones de seguridad)
-  - `/api/odontologia/lejanos` ahora funciona correctamente con coordenadas válidas
-  
-- ✅ **Testing**:
-  - 70/70 tests pasando (vs 59 en v1.0.0)
-  - Tests de regresión completos para validar refactorización
-  
-**Sesiones de Desarrollo:**
+**Fixed**
+- Corrected a data entry error where a facility record had latitude/longitude transposed, which prevented it from being correctly selected by the area-assignment algorithm.
+- Added missing `phone` field across the urgent-care facility dataset.
 
-### SESIÓN 6 — 2026-01-06 — Revisión transversal y limpieza final
-- Revisión completa del código refactorizado
-- Eliminación de console.log duplicados → logger estructurado
-- Corrección de endpoints públicos (/, /health, /debug sin JWT)
-- Actualización de README.md y CHANGELOG.md
-- Validación final: 70/70 tests passing
+**Added**
+- Municipal-boundary validation on coordinate-based lookups (`assigned facility` and `programmatic area` endpoints): requests with coordinates outside the service area now return a distinct `422` response instead of a generic `404`, so client applications (chatbots, portals) can surface a clearer message to the end user.
+- New "programmatic zones" endpoints: list all zones with facility counts, and list facilities within a given zone (accepts both zero-padded and short zone codes, normalizes automatically).
 
-### SESIÓN 5 — 2026-01-05 — Merge y sincronización
-- Merge de rama refactor/restructure-server a main
-- Sincronización local con remoto (git pull)
-- Validación de estructura completa en main
-- Verificación de tests post-merge
-
-### SESIÓN 4 — 2026-01-03 — Code cleanup y optimización
-- Creación de `utils/formatters.js` con funciones compartidas
-- Eliminación de código duplicado en routes/
-- Traducción de comentarios inglés → español
-- Optimización de imports en odontologia.routes.js
-- Limpieza de comentarios duplicados
-
-### SESIÓN 3 — 2026-01-02 — Mejoras de endpoints
-- Mejora de `/centros_salud_mapa`: filtro por centro + horarios
-- Reescritura de `/api/odontologia/lejanos`: lógica independiente para sugerencias
-- Testing exhaustivo de endpoints mejorados
-- Validación de formato de respuestas
-
-### SESIÓN 2 — 2025-12-27 — Testing y bugfixes
-- Corrección de bug dotenv (execution order)
-- Todos los tests pasando (70/70)
-- Validación de endpoints legacy (/test_odo, /centros_salud_mapa)
-- Testing de flujos de odontología completos
-
-### SESIÓN 1 — 2025-12-23 — Inicio de refactorización
-- Creación de rama `refactor/restructure-server`
-- Planificación de arquitectura MVC + Services
-- Extracción de config/ (constants, security, rateLimits)
-- Creación de middlewares/ (auth, logging, validation, timeout, errorHandlers)
-- Creación de services/ (auth, area, centroSelection)
-- Creación de routes/ (health, auth, centros, area, odontologia, som, admin)
-- Backup de server.js original → server.js.backup
+**Docs**
+- Updated the API reference with the new endpoints and the boundary-validation behavior.
 
 ---
 
-## v1.0.0 — 2025-12-16 (Deploy Inicial)
+## v2.0.0 — Modular architecture refactor
 
-- Alcance:
-  - Implementación y despliegue del endpoint `SOM` para servicios odontológicos especializados (`/api/servicios_odontologicos/servicios`).
-  - Formato liviano optimizado para mapas en `/centros_salud_mapa`.
-  - Autenticación básica aplicada (excepto `/health`).
-  - Validaciones RF7: parsing y validación de coordenadas (coma/punto), aliases, rangos y robustez ante campos faltantes.
-  - Tests: suite final (local) mostró 59 tests en ejecución; historial de desarrollo registra suites de 35/35 en sesiones previas.
-  - Datos: dataset final con 101 centros (`CS001`..`CS101`) + `SOM`.
+**Changed**
+- Refactored the monolithic entry point into a layered MVC + Services structure: `config/` (constants, security, rate limits), `middlewares/` (auth, logging, validation, timeout, error handling), `services/` (business logic), `routes/` (domain-organized endpoints), `utils/` (shared formatters).
+- Reduced the main server file from ~1,300 lines to under 100 by extracting responsibilities into the layers above.
+- Replaced ad hoc `console.log` calls with structured logging throughout.
+- Removed duplicated response-formatting logic in favor of shared formatter utilities.
 
----
+**Added**
+- Facility-map endpoint now supports filtering by a single facility and includes operating hours.
+- Public endpoints (root, health check, debug) explicitly excluded from JWT enforcement.
 
-## Historial detallado de desarrollo
+**Fixed**
+- Corrected environment-variable load order, which had been causing security validations to fail on cold start.
+- Fixed a "farther facilities" fallback endpoint that wasn't returning results outside the caller's own service area.
 
-### SESIÓN 1 — 2025-12-12 — Setup inicial y refactor RF7
+**Testing**
+- Full regression suite passing (70/70) after the refactor, up from 59 pre-refactor.
 
-- Objetivos:
-  - Implementar RF7 (normalización y validación de datos).
-  - Resolver edge-cases de asignación odontológica (Casos A/B/C).
-  - Añadir validaciones defensivas para evitar crashes con datos inconsistentes.
-
-- Problemas detectados:
-  1. Caso B (`/test_odo`): muchos centros tienen `turno_callcenter: true`; algunos (27) tienen `false` — al probar con coordenadas de ciertos centros (ej. `CS017`) siempre se asignaba otro más cercano con callcenter.
-  2. Caso C (derivación a `SOM`): en datos reales TODOS los centros tienen odontología, por lo que fue necesario usar mocks para probar la derivación.
-
-- Soluciones y cambios:
-  - Tests unitarios con datos mock (`odo.test.js`) para cubrir casos A/B/C.
-  - Validaciones defensivas añadidas en `server.js`:
-    - `/test_odo`: `const servicios = Array.isArray(asignado.servicios) ? asignado.servicios : []`.
-    - `/centro_correspondiente`: `const serviciosValidos = Array.isArray(centro.servicios) ? centro.servicios : []`.
-    - `/centros_salud/:id`: garantizar `centro.servicios = []` si falta.
-  - `SOM` se obtiene ahora desde el JSON de datos en vez de estar hardcoded.
+**Development history (condensed)**
+The refactor was carried out incrementally over six working sessions: initial architecture planning and extraction of the config layer; middleware and service extraction; route reorganization; a cross-cutting cleanup pass (removing duplicated logic, translating internal comments to a consistent language); a merge/sync pass; and a final review with full regression validation.
 
 ---
 
-### SESIÓN 2 — 2025-12-15 — Suite completa de tests
+## v1.0.0 — Initial deployment
 
-- Objetivos:
-  - Añadir tests automatizados con Mocha/Chai y Supertest.
-  - Testear casos A/B/C con combinación de datos reales y mocks.
-  - Verificar consistencia global del proyecto y documentar RF6 (lógica) y RF7 (robustez).
-
-- Auditoría principal:
-  - `odo.test.js` original usaba una estructura incorrecta para `servicios` (objeto). Se refactorizó a usar arrays tal como en el JSON real.
-
-- Dependencias para testing (instaladas como devDependencies en desarrollo): `mocha`, `chai`, `supertest`.
-
-- Suites implementadas y resultados:
-  1. `odo.test.js` — 4 tests unitarios (mocks): Caso A, B, C y validación de parámetros.
-  2. `odo.real.test.js` — 3 tests con datos reales: Caso A real, conteo de centros sin callcenter (27) y verificación de odontología en todos los CS.
-  3. `server.integration.test.js` — 28 tests de integración contra `server.js` real.
-
-- Resultado reportado en sesiones: 35/35 passing (sesión específica). En ejecuciones locales posteriores aparecen 59 tests en el repo actual.
+- Deployed the specialized dental-referral endpoint and the lightweight map-formatted facility listing.
+- Applied baseline authentication (all endpoints except health check).
+- Added defensive parsing/validation for coordinate input (locale-aware decimal separators, parameter aliases, range checks, and graceful handling of missing fields).
+- Initial dataset: 100+ facility records plus one specialized referral center.
+- Test suite: 59 passing tests at release; earlier development milestones had run smaller suites (35/35) against mocked data.
 
 ---
 
-## Decisiones técnicas importantes
+## Key technical decisions
 
-- Algoritmo de distancia: Haversine (precisión y corrección geográfica). Ejemplo:
+- **Distance calculation:** Haversine formula, chosen for its accuracy over the short distances typical of intra-city routing.
+- **Separation of concerns:** Facility-assignment logic (business rules) and input-robustness logic (validation/defensive coding) were deliberately kept in separate layers, so either can change independently and be tested in isolation.
+- **Audit logging:** Every assignment decision is logged with the input coordinates and the resulting facility/case, to support later debugging of routing edge cases.
+- **API surface discipline:** An early "nearby facilities" endpoint that returned multiple candidates was deprecated in favor of a single `assigned facility` endpoint, to keep the contract predictable for downstream chatbot consumers.
 
-```javascript
-function calcularDistancia(lat1, lon1, lat2, lon2) { /* Haversine */ }
-```
+## Dataset summary (at v1.0.0 baseline)
 
-- Motivaciones principales:
-  - Separación RF6 (lógica de negocio: asignación) y RF7 (robustez, validaciones). Esto permite cambios independientes y pruebas más seguras.
-  - Añadir logs de auditoría para trazabilidad: `console.log('[ASIGNACION_ODO] lat=..., lon=... -> centro=CSxxx (Caso X)')`.
-  - Deprecación comentada del endpoint `/centros_cercanos` porque contradecía la política de devolver un único `centro_asignado`.
-
----
-
-## Resumen de métricas (extraídas del historial)
-
-- Centros en dataset: 101 (CS001..CS101) + `SOM`.
-- Con odontología: 101/101.
-- Con `turno_callcenter` en odontología: 73.
-- Sin `turno_callcenter` en odontología: 27.
-- Tests (ejemplos en historial): 35 passing (sesión); ejecuciones locales recientes muestran 59 passing.
-
----
-
-## Endpoints implementados (resumen)
-
-- `GET /health` — health check y metadata (version, total_centros).
-- `GET /test_odo` — asignación odontológica (Casos A/B/C). Acepta aliases y formatos de coordenadas (coma/punto).
-- `GET /centro_correspondiente` — centro asignado único para coordenadas.
-- `GET /centros_salud` — listado paginado o completo.
-- `GET /centros_salud/:id` — detalle (lite/completo).
-- `GET /centros_salud/:id/servicios` — servicios por centro (filtros por `callcenter`).
-- `GET /centros_salud_mapa` — formato liviano para mapas.
-
-Para detalles y ejemplos ver `README.md` y los tests en `/test`.
-
-
----
-
-**Última actualización:** 2025-12-22
+- 100+ facilities in the primary dataset, plus one specialized referral center.
+- All facilities offer a baseline dental service; roughly a quarter require an in-person visit to book (no call-center scheduling).
