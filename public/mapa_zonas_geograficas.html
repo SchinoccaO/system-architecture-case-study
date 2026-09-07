@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propuesta de Zonas Geográficas - Córdoba</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        #header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        #header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        #controls {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .filter-btn.active {
+            color: white;
+            border-color: transparent;
+        }
+        
+        .filter-btn.norte.active { background: #3b82f6; }
+        .filter-btn.sur.active { background: #ef4444; }
+        .filter-btn.este.active { background: #10b981; }
+        .filter-btn.oeste.active { background: #f59e0b; }
+        .filter-btn.todos.active { background: #8b5cf6; }
+        
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .norte-dot { background: #3b82f6; }
+        .sur-dot { background: #ef4444; }
+        .este-dot { background: #10b981; }
+        .oeste-dot { background: #f59e0b; }
+        
+        #map {
+            flex: 1;
+            width: 100%;
+        }
+        
+        #stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        #stats h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        
+        .stat-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .info-panel {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .info-panel h4 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .info-panel p {
+            margin: 3px 0;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .leaflet-popup-content {
+            margin: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>🗺️ Propuesta de Zonas Geográficas - Córdoba</h1>
+        <p>Centros de salud divididos por dirección cardinal desde el centro geográfico</p>
+    </div>
+    
+    <div id="controls">
+        <div class="filter-group">
+            <strong>Filtrar zonas:</strong>
+            <button class="filter-btn todos active" onclick="filtrarZona('todos')">
+                Todas las zonas
+            </button>
+            <button class="filter-btn norte" onclick="filtrarZona('norte')">
+                <span class="color-dot norte-dot"></span>
+                NORTE
+            </button>
+            <button class="filter-btn sur" onclick="filtrarZona('sur')">
+                <span class="color-dot sur-dot"></span>
+                SUR
+            </button>
+            <button class="filter-btn este" onclick="filtrarZona('este')">
+                <span class="color-dot este-dot"></span>
+                ESTE
+            </button>
+            <button class="filter-btn oeste" onclick="filtrarZona('oeste')">
+                <span class="color-dot oeste-dot"></span>
+                OESTE
+            </button>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    
+    <div id="stats">
+        <h3>📊 Estadísticas</h3>
+        <div class="stat-item">
+            <span class="stat-label"><span class="color-dot norte-dot"></span> NORTE</span>
+            <span class="stat-value" id="stat-norte">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label"><span class="color-dot sur-dot"></span> SUR</span>
+            <span class="stat-value" id="stat-sur">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label"><span class="color-dot este-dot"></span> ESTE</span>
+            <span class="stat-value" id="stat-este">0</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label"><span class="color-dot oeste-dot"></span> OESTE</span>
+            <span class="stat-value" id="stat-oeste">0</span>
+        </div>
+        <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
+        <div class="stat-item">
+            <strong>TOTAL</strong>
+            <span class="stat-value" id="stat-total">0</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Datos embebidos
+        const CENTRO_LAT = -31.413542;
+        const CENTRO_LON = -64.178741;
+        
+        const centros = [
+  {
+    "id": "CS001",
+    "nombre": "Centro de Salud General Mosconi",
+    "latitud": -31.3648,
+    "longitud": -64.149057,
+    "zona": "norte"
+  },
+  {
+    "id": "CS002",
+    "nombre": "Centro de Salud Los Sauces",
+    "latitud": -31.46223,
+    "longitud": -64.099324,
+    "zona": "este"
+  },
+  {
+    "id": "CS003",
+    "nombre": "Centro de Salud Los Pinos",
+    "latitud": -31.39212,
+    "longitud": -64.140914,
+    "zona": "este"
+  },
+  {
+    "id": "CS004",
+    "nombre": "Centro de Salud Nueva Italia",
+    "latitud": -31.381934,
+    "longitud": -64.142765,
+    "zona": "este"
+  },
+  {
+    "id": "CS005",
+    "nombre": "Centro de Salud Yofre Norte",
+    "latitud": -31.38667,
+    "longitud": -64.130464,
+    "zona": "este"
+  },
+  {
+    "id": "CS006",
+    "nombre": "Centro de Salud Villa Rivera Indarte",
+    "latitud": -31.32814,
+    "longitud": -64.29749,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS007",
+    "nombre": "Centro de Salud Pueyrredon",
+    "latitud": -31.400302,
+    "longitud": -64.154813,
+    "zona": "este"
+  },
+  {
+    "id": "CS008",
+    "nombre": "Centro de Salud Acosta",
+    "latitud": -31.427812,
+    "longitud": -64.130083,
+    "zona": "este"
+  },
+  {
+    "id": "CS009",
+    "nombre": "Centro de Salud Alberdi Oeste",
+    "latitud": -31.404899,
+    "longitud": -64.213926,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS010",
+    "nombre": "Centro de Salud Colonia Lola",
+    "latitud": -31.424926,
+    "longitud": -64.115186,
+    "zona": "este"
+  },
+  {
+    "id": "CS012",
+    "nombre": "Centro de Salud Ferreyra",
+    "latitud": -31.461173,
+    "longitud": -64.108868,
+    "zona": "este"
+  },
+  {
+    "id": "CS013",
+    "nombre": "Centro de Salud Irigoyen",
+    "latitud": -31.372752,
+    "longitud": -64.186984,
+    "zona": "norte"
+  },
+  {
+    "id": "CS014",
+    "nombre": "Centro de Salud General Bustos",
+    "latitud": -31.387143,
+    "longitud": -64.163957,
+    "zona": "norte"
+  },
+  {
+    "id": "CS015",
+    "nombre": "Centro de Salud Remedios De Escalada",
+    "latitud": -31.339123,
+    "longitud": -64.178771,
+    "zona": "norte"
+  },
+  {
+    "id": "CS016",
+    "nombre": "Centro de Salud Zumaran",
+    "latitud": -31.375246,
+    "longitud": -64.205153,
+    "zona": "norte"
+  },
+  {
+    "id": "CS017",
+    "nombre": "Centro de Salud Villa Azalais OESTE",
+    "latitud": -31.36641,
+    "longitud": -64.175209,
+    "zona": "norte"
+  },
+  {
+    "id": "CS018",
+    "nombre": "Centro de Salud San Jorge",
+    "latitud": -31.374268,
+    "longitud": -64.132154,
+    "zona": "este"
+  },
+  {
+    "id": "CS019",
+    "nombre": "Centro de Salud Sargento Cabral",
+    "latitud": -31.375731,
+    "longitud": -64.194928,
+    "zona": "norte"
+  },
+  {
+    "id": "CS020",
+    "nombre": "Centro de Salud Las Margaritas",
+    "latitud": -31.377368,
+    "longitud": -64.210984,
+    "zona": "norte"
+  },
+  {
+    "id": "CS021",
+    "nombre": "Centro de Salud Marquez De Sobremonte",
+    "latitud": -31.364883,
+    "longitud": -64.196747,
+    "zona": "norte"
+  },
+  {
+    "id": "CS022",
+    "nombre": "Centro de Salud Alberdi  Sud",
+    "latitud": -31.412561,
+    "longitud": -64.213613,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS023",
+    "nombre": "Centro de Salud Rosedal Anexo",
+    "latitud": -31.43749,
+    "longitud": -64.22351,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS024",
+    "nombre": "Centro de Salud Cupani",
+    "latitud": -31.423763,
+    "longitud": -64.207929,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS025",
+    "nombre": "Centro de Salud San Martin",
+    "latitud": -31.394638,
+    "longitud": -64.196768,
+    "zona": "norte"
+  },
+  {
+    "id": "CS026",
+    "nombre": "Centro de Salud Santa Ana",
+    "latitud": -31.414465,
+    "longitud": -64.232517,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS027",
+    "nombre": "Centro de Salud Pilar",
+    "latitud": -31.443944,
+    "longitud": -64.156071,
+    "zona": "sur"
+  },
+  {
+    "id": "CS028",
+    "nombre": "Centro de Salud Las Violetas",
+    "latitud": -31.410755,
+    "longitud": -64.250729,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS029",
+    "nombre": "Centro de Salud Villa Siburu",
+    "latitud": -31.39575,
+    "longitud": -64.227643,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS030",
+    "nombre": "Centro de Salud Villa Paez",
+    "latitud": -31.397133,
+    "longitud": -64.206803,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS031",
+    "nombre": "Centro de Salud La Salle",
+    "latitud": -31.344291,
+    "longitud": -64.275016,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS032",
+    "nombre": "Centro de Salud Yapeyu",
+    "latitud": -31.41276,
+    "longitud": -64.149583,
+    "zona": "este"
+  },
+  {
+    "id": "CS033",
+    "nombre": "Centro de Salud Arguello",
+    "latitud": -31.33635,
+    "longitud": -64.25974,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS034",
+    "nombre": "Centro de Salud Villa 9 De Julio",
+    "latitud": -31.32854,
+    "longitud": -64.27083,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS035",
+    "nombre": "Centro de Salud Villa Revol",
+    "latitud": -31.445921,
+    "longitud": -64.170448,
+    "zona": "sur"
+  },
+  {
+    "id": "CS037",
+    "nombre": "Centro de Salud Jose I Diaz",
+    "latitud": -31.43765,
+    "longitud": -64.14721,
+    "zona": "este"
+  },
+  {
+    "id": "CS038",
+    "nombre": "Centro de Salud General Urquiza",
+    "latitud": -31.43919,
+    "longitud": -64.14838,
+    "zona": "este"
+  },
+  {
+    "id": "CS039",
+    "nombre": "Centro de Salud Ferrer",
+    "latitud": -31.44526,
+    "longitud": -64.21092,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS040",
+    "nombre": "Centro de Salud Las Flores",
+    "latitud": -31.45121,
+    "longitud": -64.20233,
+    "zona": "sur"
+  },
+  {
+    "id": "CS041",
+    "nombre": "Centro de Salud Villa El Libertador",
+    "latitud": -31.47049,
+    "longitud": -64.21509,
+    "zona": "sur"
+  },
+  {
+    "id": "CS042",
+    "nombre": "Centro de Salud Comercial",
+    "latitud": -31.48423,
+    "longitud": -64.21039,
+    "zona": "sur"
+  },
+  {
+    "id": "CS043",
+    "nombre": "Centro de Salud Guemes",
+    "latitud": -31.42339,
+    "longitud": -64.19502,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS044",
+    "nombre": "Centro de Salud Bella Vista",
+    "latitud": -31.43446,
+    "longitud": -64.20838,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS045",
+    "nombre": "Centro de Salud Cabo Farina",
+    "latitud": -31.4636,
+    "longitud": -64.20541,
+    "zona": "sur"
+  },
+  {
+    "id": "CS046",
+    "nombre": "Centro de Salud Santa Isabel",
+    "latitud": -31.47881,
+    "longitud": -64.22948,
+    "zona": "sur"
+  },
+  {
+    "id": "CS047",
+    "nombre": "Centro de Salud Coronel Olmedo",
+    "latitud": -31.48131,
+    "longitud": -64.14322,
+    "zona": "sur"
+  },
+  {
+    "id": "CS048",
+    "nombre": "Centro de Salud Villa Azalais Este",
+    "latitud": -31.37525,
+    "longitud": -64.15074,
+    "zona": "norte"
+  },
+  {
+    "id": "CS049",
+    "nombre": "Centro de Salud Colinas Del Cerro",
+    "latitud": -31.379297,
+    "longitud": -64.248691,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS050",
+    "nombre": "Centro de Salud Villa Adela",
+    "latitud": -31.435822,
+    "longitud": -64.248264,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS051",
+    "nombre": "Centro de Salud Guia Azu",
+    "latitud": -31.31379,
+    "longitud": -64.176835,
+    "zona": "norte"
+  },
+  {
+    "id": "CS052",
+    "nombre": "Centro de Salud Villa Urquiza",
+    "latitud": -31.391963,
+    "longitud": -64.241363,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS053",
+    "nombre": "Centro de Salud Inaudi",
+    "latitud": -31.47643,
+    "longitud": -64.193448,
+    "zona": "sur"
+  },
+  {
+    "id": "CS054",
+    "nombre": "Centro de Salud Los Boulevares",
+    "latitud": -31.344621,
+    "longitud": -64.217497,
+    "zona": "norte"
+  },
+  {
+    "id": "CS055",
+    "nombre": "Centro de Salud Las Palmas",
+    "latitud": -31.406385,
+    "longitud": -64.240834,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS056",
+    "nombre": "Centro de Salud Empalme",
+    "latitud": -31.432059,
+    "longitud": -64.124231,
+    "zona": "este"
+  },
+  {
+    "id": "CS057",
+    "nombre": "Centro de Salud Arguello Ipv",
+    "latitud": -31.333354,
+    "longitud": -64.246379,
+    "zona": "norte"
+  },
+  {
+    "id": "CS058",
+    "nombre": "Centro de Salud Maldonado",
+    "latitud": -31.414486,
+    "longitud": -64.131618,
+    "zona": "este"
+  },
+  {
+    "id": "CS059",
+    "nombre": "Centro de Salud Congreso",
+    "latitud": -31.467755,
+    "longitud": -64.232624,
+    "zona": "sur"
+  },
+  {
+    "id": "CS060",
+    "nombre": "Centro de Salud Marquez Anexo",
+    "latitud": -31.372003,
+    "longitud": -64.190261,
+    "zona": "norte"
+  },
+  {
+    "id": "CS061",
+    "nombre": "Centro de Salud El Cerrito",
+    "latitud": -31.325207,
+    "longitud": -64.248648,
+    "zona": "norte"
+  },
+  {
+    "id": "CS062",
+    "nombre": "Centro de Salud Villa Cornu",
+    "latitud": -31.313475,
+    "longitud": -64.2701,
+    "zona": "norte"
+  },
+  {
+    "id": "CS063",
+    "nombre": "Centro de Salud Parque Republica",
+    "latitud": -31.415466,
+    "longitud": -64.259353,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS064",
+    "nombre": "Centro de Salud Bialet Masse",
+    "latitud": -31.45258,
+    "longitud": -64.165414,
+    "zona": "sur"
+  },
+  {
+    "id": "CS065",
+    "nombre": "Centro de Salud San Roque",
+    "latitud": -31.421891,
+    "longitud": -64.247017,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS066",
+    "nombre": "Centro de Salud Mercantil Anexo",
+    "latitud": -31.325201,
+    "longitud": -64.262815,
+    "zona": "norte"
+  },
+  {
+    "id": "CS067",
+    "nombre": "Centro de Salud 16 De Noviembre",
+    "latitud": -31.313572,
+    "longitud": -64.261726,
+    "zona": "norte"
+  },
+  {
+    "id": "CS068",
+    "nombre": "Centro de Salud Carcano",
+    "latitud": -31.46598,
+    "longitud": -64.144551,
+    "zona": "sur"
+  },
+  {
+    "id": "CS069",
+    "nombre": "Centro de Salud Gral Arenales",
+    "latitud": -31.369312,
+    "longitud": -64.060866,
+    "zona": "este"
+  },
+  {
+    "id": "CS070",
+    "nombre": "Centro de Salud Estacion Flores",
+    "latitud": -31.448195,
+    "longitud": -64.247705,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS071",
+    "nombre": "Centro de Salud Coop El Arco",
+    "latitud": -31.468283,
+    "longitud": -64.157659,
+    "zona": "sur"
+  },
+  {
+    "id": "CS072",
+    "nombre": "Centro de Salud La Floresta",
+    "latitud": -31.378005,
+    "longitud": -64.059992,
+    "zona": "este"
+  },
+  {
+    "id": "CS073",
+    "nombre": "Centro de Salud Parque Futura",
+    "latitud": -31.483352,
+    "longitud": -64.246765,
+    "zona": "sur"
+  },
+  {
+    "id": "CS074",
+    "nombre": "Centro de Salud Villa Esquiu",
+    "latitud": -31.355414,
+    "longitud": -64.105461,
+    "zona": "este"
+  },
+  {
+    "id": "CS075",
+    "nombre": "Centro de Salud Los Cerveceros",
+    "latitud": -31.464296,
+    "longitud": -64.16007,
+    "zona": "sur"
+  },
+  {
+    "id": "CS076",
+    "nombre": "Centro de Salud Villa Union",
+    "latitud": -31.386524,
+    "longitud": -64.273165,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS077",
+    "nombre": "Centro de Salud Don Bosco",
+    "latitud": -31.38667,
+    "longitud": -64.27318,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS078",
+    "nombre": "Centro de Salud Pque Liceo Ii Seccion",
+    "latitud": -31.355099,
+    "longitud": -64.167664,
+    "zona": "norte"
+  },
+  {
+    "id": "CS079",
+    "nombre": "Centro de Salud Albert Sabin",
+    "latitud": -31.499449,
+    "longitud": -64.198371,
+    "zona": "sur"
+  },
+  {
+    "id": "CS080",
+    "nombre": "Centro de Salud Renacimiento",
+    "latitud": -31.41547,
+    "longitud": -64.122643,
+    "zona": "este"
+  },
+  {
+    "id": "CS081",
+    "nombre": "Centro de Salud San Lorenzo",
+    "latitud": -31.455072,
+    "longitud": -64.1084924,
+    "zona": "este"
+  },
+  {
+    "id": "CS082",
+    "nombre": "Centro de Salud Villa Allende Parque",
+    "latitud": -31.455072,
+    "longitud": -64.1084924,
+    "zona": "este"
+  },
+  {
+    "id": "CS083",
+    "nombre": "Centro de Salud Ameghino Norte",
+    "latitud": -31.4294856,
+    "longitud": -64.2392105,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS084",
+    "nombre": "Centro de Salud Bajo Grande",
+    "latitud": -31.402951,
+    "longitud": -64.089316,
+    "zona": "este"
+  },
+  {
+    "id": "CS085",
+    "nombre": "Centro de Salud Patricios Este",
+    "latitud": -31.367004,
+    "longitud": -64.136531,
+    "zona": "norte"
+  },
+  {
+    "id": "CS086",
+    "nombre": "Centro de Salud El Libertador",
+    "latitud": -31.48113,
+    "longitud": -64.21667,
+    "zona": "sur"
+  },
+  {
+    "id": "CS087",
+    "nombre": "Centro de Salud Sachi",
+    "latitud": -31.454728,
+    "longitud": -64.263078,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS088",
+    "nombre": "Centro de Salud Villa La Merced",
+    "latitud": -31.40128,
+    "longitud": -64.06082,
+    "zona": "este"
+  },
+  {
+    "id": "CS089",
+    "nombre": "Centro de Salud Villa Rivadavia",
+    "latitud": -31.51361,
+    "longitud": -64.19639,
+    "zona": "sur"
+  },
+  {
+    "id": "CS090",
+    "nombre": "Centro de Salud Ituzaingo Anexo",
+    "latitud": -31.463619,
+    "longitud": -64.082319,
+    "zona": "este"
+  },
+  {
+    "id": "CS091",
+    "nombre": "Centro de Salud Villa Bustos",
+    "latitud": -31.439264,
+    "longitud": -64.113185,
+    "zona": "este"
+  },
+  {
+    "id": "CS092",
+    "nombre": "Centro de Salud Los Cortaderos",
+    "latitud": -31.332015,
+    "longitud": -64.23067,
+    "zona": "norte"
+  },
+  {
+    "id": "CS093",
+    "nombre": "Centro de Salud Villa La Tela",
+    "latitud": -31.427766,
+    "longitud": -64.252617,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS094",
+    "nombre": "Centro de Salud Pque Liceo Iii Seccion",
+    "latitud": -31.35374,
+    "longitud": -64.15161,
+    "zona": "norte"
+  },
+  {
+    "id": "CS095",
+    "nombre": "Centro de Salud Cno 60 Cuadras",
+    "latitud": -31.427766,
+    "longitud": -64.252617,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS096",
+    "nombre": "Centro de Salud Jose Ignacio Diaz I",
+    "latitud": -31.443424,
+    "longitud": -64.128413,
+    "zona": "este"
+  },
+  {
+    "id": "CS097",
+    "nombre": "Centro de Salud Cabildo",
+    "latitud": -31.4890578,
+    "longitud": -64.2345784,
+    "zona": "sur"
+  },
+  {
+    "id": "CS098",
+    "nombre": "Centro de Salud Mercado De Abasto",
+    "latitud": -31.395132,
+    "longitud": -64.112198,
+    "zona": "este"
+  },
+  {
+    "id": "CS099",
+    "nombre": "Centro de Salud Los Robles",
+    "latitud": -31.4025916,
+    "longitud": -64.2624685,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS100",
+    "nombre": "Centro de Salud Heroes De Malvinas",
+    "latitud": -31.476027,
+    "longitud": -64.2511264,
+    "zona": "oeste"
+  },
+  {
+    "id": "CS101",
+    "nombre": "Centro de Salud 12 De Julio",
+    "latitud": -31.3142923,
+    "longitud": -64.2540959,
+    "zona": "norte"
+  }
+];
+        
+        let markers = {};
+        let map;
+        let centroMarker;
+        let divisionLines = [];
+        
+        // Colores por zona
+        const colores = {
+            norte: '#3b82f6',
+            sur: '#ef4444',
+            este: '#10b981',
+            oeste: '#f59e0b'
+        };
+        
+        // Inicializar mapa
+        function initMap() {
+            map = L.map('map').setView([CENTRO_LAT, CENTRO_LON], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Marcar el centro geográfico
+            centroMarker = L.circleMarker([CENTRO_LAT, CENTRO_LON], {
+                radius: 10,
+                fillColor: '#000',
+                color: '#fff',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            centroMarker.bindPopup(`
+                <div class="info-panel">
+                    <h4>⭐ Centro Geográfico</h4>
+                    <p><strong>Lat:</strong> ${CENTRO_LAT.toFixed(6)}</p>
+                    <p><strong>Lon:</strong> ${CENTRO_LON.toFixed(6)}</p>
+                </div>
+            `);
+            
+            // Dibujar líneas divisorias
+            const latRange = 0.15;
+            const lonRange = 0.15;
+            
+            // Línea horizontal (divide Norte/Sur)
+            const lineaNS = L.polyline([
+                [CENTRO_LAT, CENTRO_LON - lonRange],
+                [CENTRO_LAT, CENTRO_LON + lonRange]
+            ], {
+                color: '#666',
+                weight: 2,
+                dashArray: '10, 10',
+                opacity: 0.5
+            }).addTo(map);
+            divisionLines.push(lineaNS);
+            
+            // Línea vertical (divide Este/Oeste)
+            const lineaEO = L.polyline([
+                [CENTRO_LAT - latRange, CENTRO_LON],
+                [CENTRO_LAT + latRange, CENTRO_LON]
+            ], {
+                color: '#666',
+                weight: 2,
+                dashArray: '10, 10',
+                opacity: 0.5
+            }).addTo(map);
+            divisionLines.push(lineaEO);
+            
+            mostrarCentros();
+            actualizarEstadisticas();
+        }
+        
+        // Mostrar centros en el mapa
+        function mostrarCentros() {
+            centros.forEach(centro => {
+                const marker = L.circleMarker([centro.latitud, centro.longitud], {
+                    radius: 6,
+                    fillColor: colores[centro.zona],
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                marker.bindPopup(`
+                    <div class="info-panel">
+                        <h4>${centro.id}</h4>
+                        <p><strong>${centro.nombre}</strong></p>
+                        <p style="color: ${colores[centro.zona]}; font-weight: bold; text-transform: uppercase;">
+                            Zona: ${centro.zona}
+                        </p>
+                        <p style="font-size: 11px; color: #999;">
+                            ${centro.latitud.toFixed(6)}, ${centro.longitud.toFixed(6)}
+                        </p>
+                    </div>
+                `);
+                
+                marker.addTo(map);
+                markers[centro.id] = marker;
+            });
+        }
+        
+        // Filtrar por zona
+        function filtrarZona(zona) {
+            // Actualizar botones activos
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Filtrar markers
+            centros.forEach(centro => {
+                const marker = markers[centro.id];
+                if (zona === 'todos' || centro.zona === zona) {
+                    marker.setStyle({ fillOpacity: 0.8, opacity: 1 });
+                } else {
+                    marker.setStyle({ fillOpacity: 0.1, opacity: 0.3 });
+                }
+            });
+        }
+        
+        // Actualizar estadísticas
+        function actualizarEstadisticas() {
+            const stats = {
+                norte: centros.filter(c => c.zona === 'norte').length,
+                sur: centros.filter(c => c.zona === 'sur').length,
+                este: centros.filter(c => c.zona === 'este').length,
+                oeste: centros.filter(c => c.zona === 'oeste').length
+            };
+            
+            document.getElementById('stat-norte').textContent = stats.norte;
+            document.getElementById('stat-sur').textContent = stats.sur;
+            document.getElementById('stat-este').textContent = stats.este;
+            document.getElementById('stat-oeste').textContent = stats.oeste;
+            document.getElementById('stat-total').textContent = centros.length;
+        }
+        
+        // Inicializar
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>
